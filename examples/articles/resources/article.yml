@@ -1,0 +1,17 @@
+collection/Articles:
+    uri: '/articles'
+    dbCollection: 'articles'
+    resource: 'resource/Article'
+
+resource/Article:
+    uri: '/articles/:id'
+    properties:
+        id:
+            type: id
+            key: primary
+        title:
+            type: string
+            length: 255
+            key: unique
+        body:
+            type: text
