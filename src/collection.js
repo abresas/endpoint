@@ -14,7 +14,7 @@ function Collection( schema, db ) {
     collection.list = function( callback ) {
         dbCollection.find().toArray( callback );
     };
-    collection.insert = function( data, callback ) {
+    collection.create = function( data, callback ) {
         dbCollection.findOne( {}, { sort: [['id','desc']] }, function( err, last ) {
             if ( err ) { 
                 callback( err, null );
@@ -26,7 +26,7 @@ function Collection( schema, db ) {
                     return;
                 }
                 var uri = resourceSchema.uri.replace( ':id', data.id );
-                var resource = Resource( resourceSchema, this, data );
+                var resource = Resource( resourceSchema, collection, data );
                 callback( false, resource );
             } );
         } );
@@ -36,7 +36,7 @@ function Collection( schema, db ) {
             var resources = [];
             if ( results.length ) {
                 for ( var i = 0; i < results.length; ++i ) {
-                    resources[ i ] = Resource( resourceSchema, this, results[ i ] );      
+                    resources[ i ] = Resource( resourceSchema, collection, results[ i ] );      
                 }
             }
             callback( err, resources );
@@ -50,12 +50,12 @@ function Collection( schema, db ) {
             }
             else {
                 console.log( 'result', result );
-                var resource = Resource( resourceSchema, this, result );
+                var resource = Resource( resourceSchema, collection, result );
                 callback( err, resource );
             }
         } );
     };
-    collection.remove = function( resource, callback ) {
+    collection[ 'delete' ] = function( resource, callback ) {
         dbCollection.remove( { 'id': resource.id }, function( err, result ) {
             callback && callback( err, resource );
         } );
@@ -64,6 +64,9 @@ function Collection( schema, db ) {
         dbCollection.update( { 'id': resource.id }, resource, function( err, result ) {
             callback && callback( err, resource );
         } );
+    };
+    collection.trigger = function( evt, req, res, resource, next ) {
+        next();
     };
 
     return collection;
