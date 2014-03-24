@@ -57,7 +57,7 @@ function setupAPI( app, collection, db ) {
     } );
     app.get( schema.uri, function( req, res, next ) {
         // console.log( 'list collection', collection );
-        collection.list( function( err, items ) {
+        collection.list( { limit: 100 }, function( err, items ) {
             if ( err ) {
                 return res.send( 500, err );
             }

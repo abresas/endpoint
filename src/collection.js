@@ -20,8 +20,15 @@ function Collection( schema, db ) {
             listeners[ evt ].push( callback );
         }
     };
-    collection.list = function( callback ) {
+    collection.list = function( options, callback ) {
+        if ( typeof options == 'function' ) {
+            callback = options;
+            return collection.addEventListener( 'list', callback );
+        }
         dbCollection.find().toArray( callback );
+    };
+    collection.view = function( callback ) {
+        return collection.addEventListener( 'view', callback );
     };
     collection.insert = function( data, callback ) {
         if ( typeof resource == 'function' ) {
