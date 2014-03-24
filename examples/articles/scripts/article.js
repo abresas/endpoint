@@ -1,47 +1,25 @@
-var articles = collection( 'Articles' );
-var sendmail = require( 'sendmail' );
-// var article = resource( 'Article' );
+var app = require( '../../../src/app' );
+var articles = app.get( 'collection/Articles' );
 
-articles.load( function( article, callback ) {
-    // handle article loaded from database
+articles.validate( function( req, res, resource, next ) {
+    console.log( 'articles.js validate' );
+    next();
 } );
 
-articles.remove( function( article, callback ) {
+articles.create( function( req, res, resource, next ) {
+    console.log( 'articles.js create' );
+    next();
 } );
 
-articles.create( function( article, callback ) {
-    sendmail( {
-        subject: 'Article created',
-        body: 'Article ' + article.body + ' was created. Follow this link to see it: http://example.org/' + article.uri,
-    } );
+articles.delete( function( req, res, resource, next ) {
+    console.log( 'articles.js delete' );
+    next();
 } );
 
-articles.remove( id );
-articles.remove( article );
-article.remove();
-
-articles.validate( function( article, callback ) {
-    // truthvalues returned means validation passed
-    // otherwise return false/null and call callback when ready
-    callback( article.title.length > 5 && article.body.length > 10 );
+articles.update( function( req, res, resource, next ) {
+    console.log( 'articles.js update' );
+    next();
 } );
 
-articles.authorizeCreate( function( user, data, callback ) {
-} );
+console.log( 'articles.js loaded' );
 
-articles.authorizeDelete( function( user, article, callback ) {
-} );
-
-// handle POST /articles/:id/foo
-articles.action( 'foo', 'POST', function( request, response ) {
-} );
-
-// handle any request to /articles/:id/bar
-articles.action( 'bar', function( request, response ) {
-} );
-
-server.on( function( req, res ) {
-} );
-
-server.on( '/foo/bar', 'POST', function( req, res ) {
-} );

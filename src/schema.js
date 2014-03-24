@@ -1,32 +1,8 @@
 var fs = require( 'fs' );
 var YAML = require( 'yamljs' );
 
-var schemata = {};
-/*
-
-function getSchemaByResource( resourceSchema ) {
-    for ( var i in schemata ) {
-        var schema = schemata[ i ];
-        if ( schema.resource == resourceSchema ) {
-            return schema;
-        }
-    }
-    return null;
-}
-
-function getSchemaByURI( uri ) {
-    for ( var i in schemata ) {
-        var schema = schemata[ i ];
-        if ( schema.uri == uri ) {
-            return schema;
-        }
-    }
-    return null;
-}
-*/
-
-
-function handleSchemaFileLoad( loadedSchemata, callback ) {
+function processSchemata( loadedSchemata, callback ) {
+    var schemata = []
     for ( var i in loadedSchemata ) {
         var schema = loadedSchemata[ i ];
         schema.name = i;
@@ -34,40 +10,59 @@ function handleSchemaFileLoad( loadedSchemata, callback ) {
         if ( schema.type == 'collection' ) {
             schema.resourceSchema = loadedSchemata[ schema.resource ];
         }
-        schemata[ i ] = schema;
-        callback( schema );
+        schemata.push( schema );
     }
+    return schemata;
 }
 
 function loadFromDirectory( path, callback ) {
+    var schemata = [];
     fs.readdir( path, function( err, files ) {
         if ( err ) {
-            console.error( 'Make sure resources directory exists and is readable.' );
+            callback( { error: 'resourcesdir', message: 'Error reading resources directory ' + path, details: err }, null );
+            return;
         }
-        for ( var i = 0; i < files.length; ++i ) {
-            var fileName = path + '/' + files[ i ];
+        var pending = files.length;
+        if ( !pending ) callback( false, results );
+        files.forEach( function( file ) {
+            var fileName = path + '/' + file;
             fs.stat( fileName, function( err, stat ) {
                 if ( err || !stat ) {
                     console.error( 'Error reading file: ' + fileName + '. Error: ' + err );
                     return;
                 }
                 if ( stat.isDirectory() ) {
-                    loadFromDirectory( fileName ); 
+                    loadFromDirectory( fileName, function( err, results ) {
+                        --pending;
+                        if ( results ) Array.prototype.push.apply( schemata, results );
+                        if ( !pending ) callback( false, schemata );
+                    } ); 
                     return;
                 }
                 if ( fileName.slice( -4 ) != '.yml' && fileName.slice( -5 ) != '.json' ) {
+                    --pending;
                     return;
                 }
                 if ( fileName.slice( -4 ) == '.yml' ) {
-                    YAML.load( fileName, function( data ) { handleSchemaFileLoad( data, callback ); } );
+                    YAML.load( fileName, function( result ) { 
+                        --pending;
+                        loadedSchemata = processSchemata( result );
+                        Array.prototype.push.apply( schemata, loadedSchemata );
+                        if ( !pending ) callback( false, schemata );
+                    } );
                 }
                 else if ( fileName.slice( -5 ) == '.json' ) {
-                    fs.readFile( fileName, function( data ) {
-                        handleSchemaFileLoad( JSON.parse( data ), callback );
+                    fs.readFile( fileName, function( err, result ) {
+                        --pending;
+                        if ( result ) {
+                            loadedSchemata = processSchemata( result );
+                            Array.prototype.push.apply( schemata, loadedSchemata );
+                        }
+                        if ( !pending ) callback( false, schemata );
                     } );
                 }
             } );
-        }
+        } );
     } );
 }
 
