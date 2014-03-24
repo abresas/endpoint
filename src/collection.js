@@ -3,8 +3,8 @@ var Resource = require( './resource' ).Resource;
 
 function Collection( schema, db ) {
     var resourceSchema = schema.resourceSchema;
-    console.log( schema );
-    console.log( 'collection', schema.dbCollection );
+    // console.log( schema );
+    // console.log( 'collection', schema.dbCollection );
     var dbCollection = null;
     db.collection( schema.dbCollection, function( col ) {
         dbCollection = col;
@@ -62,7 +62,7 @@ function Collection( schema, db ) {
                 return;
             }
             else {
-                console.log( 'result', result );
+                // console.log( 'result', result );
                 var resource = Resource( resourceSchema, collection, result );
                 callback( err, resource );
             }
@@ -107,7 +107,7 @@ function Collection( schema, db ) {
         collection.addEventListener( 'validate', callback );
     };
     collection.trigger = function( evt, req, res, resource, next ) {
-        console.log( 'listeners', listeners, 'evt', evt );
+        // console.log( 'listeners', listeners, 'evt', evt );
         if ( !( evt in listeners ) || !listeners[ evt ].length ) {
             if ( typeof next == 'function' ) {
                 next();
