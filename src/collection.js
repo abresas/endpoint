@@ -38,7 +38,12 @@ function Collection( schema, db ) {
             if ( err ) { 
                 callback( err, null );
             }
-            data.id = last.id + 1; // TODO: this may not be unique
+            if ( !last ) {
+                data.id = 0;
+            }
+            else {
+                data.id = last.id + 1; // TODO: this may not be unique
+            }
             dbCollection.insert( data, function( err, results ) {
                 if ( err ) {
                     callback( err, null );
