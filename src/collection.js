@@ -144,7 +144,18 @@ function Collection( schema, db ) {
                 if ( l[ i ] ) {
                     var listener = l[ i ];
                     i += 1;
-                    listener( req, res, resource, next_listener );
+                    listener( req, resource, function( code, data ) {
+                        if ( code ) {
+                            if ( !data ) {
+                                data = code;
+                                code = 200;
+                            }
+                            res.send( code, data );
+                        }
+                        else if ( !code ) {
+                            next_listener();
+                        }
+                    } );
                 }
                 else {
                     next();

@@ -188,6 +188,10 @@ function setupAPI( app, collection, db ) {
     app.set( schema.name, collection );
 }
 
+express.application.collection = function( name ) {
+    return this.get( 'collection/' + name );
+};
+
 express.application.run = function() {
     var app = this;
     app.use( express.bodyParser() );
