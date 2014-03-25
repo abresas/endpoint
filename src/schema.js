@@ -1,15 +1,21 @@
 var fs = require( 'fs' );
 var YAML = require( 'yamljs' );
 
-function processSchemata( loadedSchemata, callback ) {
+function ResourceSchema( name, data ) {
+    for ( var i in data ) {
+        this[ i ] = data[ i ];
+    }
+    this.name = name;
+    this.type = 'resource';
+
+    // from /foo/bar/:id/:field matches /foo/bar/
+    this.baseUri = this.uri.match( /^\/?([^:][^\/]*\/)+/ )[ 0 ]
+}
+
+function processSchemaFile( fileData, callback ) {
     var schemata = []
-    for ( var i in loadedSchemata ) {
-        var schema = loadedSchemata[ i ];
-        schema.name = i;
-        schema.type = schema.name.split( '/' )[ 0 ];
-        if ( schema.type == 'collection' ) {
-            schema.resourceSchema = loadedSchemata[ schema.resource ];
-        }
+    for ( var i in fileData ) {
+        var schema = new ResourceSchema( i, fileData[ i ] );
         schemata.push( schema );
     }
     return schemata;
@@ -46,7 +52,7 @@ function loadFromDirectory( path, callback ) {
                 if ( fileName.slice( -4 ) == '.yml' ) {
                     YAML.load( fileName, function( result ) { 
                         --pending;
-                        loadedSchemata = processSchemata( result );
+                        loadedSchemata = processSchemaFile( result );
                         Array.prototype.push.apply( schemata, loadedSchemata );
                         if ( !pending ) callback( false, schemata );
                     } );
@@ -55,7 +61,7 @@ function loadFromDirectory( path, callback ) {
                     fs.readFile( fileName, function( err, result ) {
                         --pending;
                         if ( result ) {
-                            loadedSchemata = processSchemata( result );
+                            loadedSchemata = processSchemaFile( result );
                             Array.prototype.push.apply( schemata, loadedSchemata );
                         }
                         if ( !pending ) callback( false, schemata );
