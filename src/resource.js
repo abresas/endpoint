@@ -5,15 +5,14 @@ function Resource( schema, collection, data ) {
     data = data || {};
 
     var resource = extend( {}, data );
-    resource.delete = function( callback ) {
-        console.log( 'collection del', collection, collection.delete );
-        collection.delete( this, callback );
+    resource.remove = function( callback ) {
+        collection.remove( this, callback );
     };
-    resource.update = function( updateData, callback ) {
+    resource.modify = function( updateData, callback ) {
         for ( i in updateData ) {
             this[ i ] = updateData[ i ];
         }
-        collection.update( this, callback );
+        collection.modify( this, callback );
     };
 
     return resource;
