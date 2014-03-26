@@ -20,7 +20,8 @@
         "express": "3.5.x",
         "mongodb": "1.3.x",
         "yamljs": "git://github.com/lotem/yaml.js",
-        "jugglingdb": "0.2.x"
+        "jugglingdb": "0.2.x",
+        "jugglingdb-mongodb": "git://github.com/jugglingdb/mongodb-adapter"
     },
     "repository": {
         "type": "git",
