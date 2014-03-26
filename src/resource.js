@@ -1,13 +1,47 @@
+var Schema = require( 'jugglingdb' ).Schema;
+
 function Resource( schema, db ) {
     this.schema = schema;
     this.db = db;
     this._listeners = {};
 
-    this.dbCollection = null;
-    var self = this;
-    db.collection( schema.dbCollection, function( col ) {
-        self.dbCollection = col;
-    } );
+    console.log( schema );
+    console.log( schema.dbCollection );
+
+    var modelProperties = {};
+    for ( var propName in this.schema.properties ) {
+        var property = this.schema.properties[ propName ];
+        var types = {
+            'id': Number,
+            'string': String,
+            'text': Schema.Text,
+            'date': Date,
+            'number': Number,
+            'boolean': Boolean,
+            'email': String
+        };
+        var modelProperty = { type: types[ property.type ] };
+        if ( property.length ) {
+            modelProperty.length = parseInt( property.length );
+        }
+        if ( property.index ) {
+            modelProperty.index = true;
+        }
+        if ( property.default ) {
+            modelProperty.default = property.default;
+        }
+        /*
+        if ( property.optional !== 'true' ) {
+            modelProperty.validatesPresenceOf( propName );
+        }
+        if ( property.unique === 'true' || property.type == 'id' ) {
+            modelProperty.validatesUniquenessOf( propName );
+        }
+        */
+        modelProperties[ propName ] = modelProperty
+    }
+
+    this.model = db.define( this.schema.name, modelProperties, { table: schema.dbCollection } );
 }
 
 Resource.prototype.list = function( req, res, next ) {
@@ -16,7 +50,7 @@ Resource.prototype.list = function( req, res, next ) {
         return this.addEventListener( 'list', req );
     }
     var self = this;
-    this.dbCollection.find().toArray( function( err, items ) {
+    this.model.all( function( err, items ) {
         if ( err ) {
             return res.send( 500, err );
         }
@@ -26,7 +60,13 @@ Resource.prototype.list = function( req, res, next ) {
 };
 
 Resource.prototype.renderList = function( req, res, next ) {
-    res.send( req.items );
+    console.log( 'list' );
+    console.log( req.items );
+    var items = [];
+    req.items.forEach( function( item ) {
+        items.push( item.__data );
+    } );
+    res.send( items );
 };
 
 Resource.prototype.validate = function( req, res, next ) {
@@ -43,17 +83,18 @@ Resource.prototype.create = function( req, res, next ) {
         return this.addEventListener( 'create', req );
     }
     var self = this;
-    dbCollection.insert( req.body, function( err, item ) {
+    this.model.create( req.body, function( err, item ) {
         if ( err ) {
             return res.send( 500, err );
         }
-        req.item = item;
+        req.resource = item;
         self.trigger( 'create', req, res, item, next );
     } );
 };
 
 Resource.prototype.render = function( req, res, next ) {
-    res.send( req.resource );
+    console.log( 'data', req.resource.__data );
+    res.send( req.resource.__data );
 };
 
 Resource.prototype.initCollectionRequest = function( req, res, next ) {
@@ -63,6 +104,7 @@ Resource.prototype.initCollectionRequest = function( req, res, next ) {
 
 Resource.prototype.initResourceRequest = function( req, res, next ) {
     // console.log( 'get resource', req.params );
+    /* TODO: dynamic query
     var query = {};
     var schema = this.schema;
     for ( var i in req.params ) {
@@ -71,19 +113,19 @@ Resource.prototype.initResourceRequest = function( req, res, next ) {
             if ( !propertySchema ) {
                 return res.send( 500, { error: "nosuchproperty", message: "No such property " + i + " on resource " + schema.name } );
             }
-            if ( propertySchema.type == 'id' || propertySchema.type == 'int' ) {
-                query[ i ] = parseInt( req.params[ i ] );
+            if ( propertySchema.type == 'int' ) {
+                query[ propName ] = parseInt( req.params[ i ] );
             }
             else if ( propertySchema.type == 'float' ) {
-                query[ i ] = parseFloat( req.params[ i ] );
+                query[ propName ] = parseFloat( req.params[ i ] );
             }
             else {
-                query[ i ] = req.params[ i ];
+                query[ propName ] = req.params[ i ];
             }
         }
     }
-    // console.log( 'finding', query );
-    this.dbCollection.findOne( query, function( err, resource ) {
+    */
+    this.model.find( req.params[ 'id' ], function( err, resource ) {
         // console.log( 'found', query, err, resource );
         if ( err ) {
             return res.send( 500, err );
@@ -106,14 +148,14 @@ Resource.prototype.view = function( req, res, next ) {
 
 Resource.prototype.replace = function( req, res, next ) {
     // console.log( 'put resource' );
-   var resource = req.resource; 
    var self = this;
-   this.dbCollection.update( { id: resource.id }, req.body, function( err ) {
+   // TODO: check existence?
+   this.model.upsert( req.body, function( err, resource ) {
        if ( err ) {
            return res.send( err );
        }
        req.resource = resource;
-       self.trigger( 'update', req, res, resource, next );
+       self.trigger( 'update', req, res, req.resource, next );
    } );
 };
 
@@ -122,19 +164,14 @@ Resource.prototype.update = function( req, res, next ) {
         return this.addEventListener( 'update', req );
     }
     // console.log( 'patch resource' );
-    
-   var resource = req.resource; 
-   var self = this;
-   for ( var i in req.body ) {
-       resource[ i ] = req.body[ i ];
-   }
-   this.dbCollection.update( { id: resource.id }, resource, function( err ) {
-       if ( err ) {
+    var self = this; 
+    var resource = req.resource; 
+    resource.updateAttributes( req.body, function( err ) {
+        if ( err ) {
            return res.send( err );
-       }
-       req.resource = resource;
-       self.trigger( 'update', req, res, resource, next );
-   } );
+        }
+        self.trigger( 'update', req, res, resource, next );
+    } );
 };
 
 Resource.prototype.delete = function( req, res, next ) {
@@ -144,7 +181,7 @@ Resource.prototype.delete = function( req, res, next ) {
     }
     var resource = req.resource;
     var self = this;
-    this.dbCollection.remove( { id: resource.id }, function( err ) {
+    resource.destroy( function( err ) {
         if ( err ) {
             return res.send( 500, err );
         }
