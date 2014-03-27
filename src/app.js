@@ -108,11 +108,20 @@ express.application.run = function() {
         }
         else {
             schemata.forEach( function( schema ) {
-                if ( !( schema.db in databases ) ) {
+                if ( !( schema.db in config.databases ) ) { // check if this db is configured
+                    console.err( 'No such db "' + schema.db + '" specified in configuration file.' );
+                    process.exit();
+
+                }
+                else if ( !( schema.db in databases ) ) { // first model with this db, connect
                     var dbConfig = config.databases[ schema.db ]
                     databases[ schema.db ] = new DBSchema( dbConfig.adapter, dbConfig );
                 }
                 db = databases[ schema.db ];
+                if ( !db.adapter ) {
+                    console.error( 'Could not initialize db "' + schema.db + '". You may need to install jugglingdb ' + dbConfig.adapter + ' adapter.' );
+                    process.exit();
+                }
                 var resource = new Resource( schema, db );
                 resource[ schema.name ] = resource;
                 setupAPI( app, resource, db );
