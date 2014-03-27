@@ -60,8 +60,8 @@ Resource.prototype.list = function( req, res, next ) {
 };
 
 Resource.prototype.renderList = function( req, res, next ) {
-    console.log( 'list' );
-    console.log( req.items );
+    // console.log( 'list' );
+    // console.log( req.items );
     var items = [];
     req.items.forEach( function( item ) {
         items.push( item.__data );
@@ -93,7 +93,7 @@ Resource.prototype.create = function( req, res, next ) {
 };
 
 Resource.prototype.render = function( req, res, next ) {
-    console.log( 'data', req.resource.__data );
+    // console.log( 'data', req.resource.__data );
     res.send( req.resource.__data );
 };
 
