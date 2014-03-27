@@ -5,9 +5,6 @@ function Resource( schema, db ) {
     this.db = db;
     this._listeners = {};
 
-    console.log( schema );
-    console.log( schema.dbCollection );
-
     var modelProperties = {};
     for ( var propName in this.schema.properties ) {
         var property = this.schema.properties[ propName ];
@@ -30,17 +27,10 @@ function Resource( schema, db ) {
         if ( property.default ) {
             modelProperty.default = property.default;
         }
-        /*
-        if ( property.optional !== 'true' ) {
-            modelProperty.validatesPresenceOf( propName );
-        }
-        if ( property.unique === 'true' || property.type == 'id' ) {
-            modelProperty.validatesUniquenessOf( propName );
-        }
-        */
         modelProperties[ propName ] = modelProperty
     }
 
+    console.log( 'table ', schema.dbCollection );
     this.model = db.define( this.schema.name, modelProperties, { table: schema.dbCollection } );
 }
 
@@ -74,7 +64,17 @@ Resource.prototype.validate = function( req, res, next ) {
     if ( typeof req == 'function' ) {
         return this.addEventListener( 'validate', req );
     }
-    this.trigger( 'validate', req, res, req.body, next );
+    var self = this;
+    if ( req.method == 'POST' ) {
+        var resource = new this.model( req.body );
+        req.resource = resource;
+    }
+    resource.isValid( function( valid ) {
+        if ( !valid ) {
+            req.send( 400, { errors: resource.errors } );
+        }
+        self.trigger( 'validate', req, res, req.body, next );
+    } );
 };
 
 Resource.prototype.create = function( req, res, next ) {
@@ -104,7 +104,6 @@ Resource.prototype.initCollectionRequest = function( req, res, next ) {
 
 Resource.prototype.initResourceRequest = function( req, res, next ) {
     // console.log( 'get resource', req.params );
-    /* TODO: dynamic query
     var query = {};
     var schema = this.schema;
     for ( var i in req.params ) {
@@ -114,18 +113,17 @@ Resource.prototype.initResourceRequest = function( req, res, next ) {
                 return res.send( 500, { error: "nosuchproperty", message: "No such property " + i + " on resource " + schema.name } );
             }
             if ( propertySchema.type == 'int' ) {
-                query[ propName ] = parseInt( req.params[ i ] );
+                query[ i ] = parseInt( req.params[ i ] );
             }
             else if ( propertySchema.type == 'float' ) {
-                query[ propName ] = parseFloat( req.params[ i ] );
+                query[ i ] = parseFloat( req.params[ i ] );
             }
             else {
-                query[ propName ] = req.params[ i ];
+                query[ i ] = req.params[ i ];
             }
         }
     }
-    */
-    this.model.find( req.params[ 'id' ], function( err, resource ) {
+    this.model.findOne( { where: query }, function( err, resource ) {
         // console.log( 'found', query, err, resource );
         if ( err ) {
             return res.send( 500, err );
