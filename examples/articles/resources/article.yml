@@ -1,6 +1,5 @@
 Article:
     uri: '/articles/:id'
-    db: 'mongodb'
     dbCollection: 'articles'
     properties:
         id:

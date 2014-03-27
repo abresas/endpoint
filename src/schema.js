@@ -8,6 +8,10 @@ function ResourceSchema( name, data ) {
     this.name = name;
     this.type = 'resource';
 
+    if ( !this.db ) {
+        this.db = 'default';
+    }
+
     // from /foo/bar/:id/:field matches /foo/bar/
     this.baseUri = this.uri.match( /^\/?([^:][^\/]*\/)+/ )[ 0 ]
 }
