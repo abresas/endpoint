@@ -6,8 +6,10 @@ function Resource( schema, db ) {
     this._listeners = {};
 
     var modelProperties = {};
+    var validations = [];
     for ( var propName in this.schema.properties ) {
         var property = this.schema.properties[ propName ];
+        console.log( 'property', property );
         var types = {
             'id': Number,
             'string': String,
@@ -18,8 +20,8 @@ function Resource( schema, db ) {
             'email': String
         };
         var modelProperty = { type: types[ property.type ] };
-        if ( property.length ) {
-            modelProperty.length = parseInt( property.length );
+        if ( property.maxLength ) {
+            modelProperty.length = parseInt( property.maxLength );
         }
         if ( property.index ) {
             modelProperty.index = true;
@@ -27,11 +29,33 @@ function Resource( schema, db ) {
         if ( property.default ) {
             modelProperty.default = property.default;
         }
+        if ( !property.optional && property.type !== "id" ) {
+            validations.push( { type: "PresenceOf", args: [ propName ] } );
+        }
+        if ( property.type === 'int' || property.type === 'decimal' || property.type === 'float' ) {
+            v = { type: "NumericalityOf", args: [ propName ] };
+            if ( property.type === 'int' ) {
+                v.args.push( { int: true } );
+            }
+            validations.push( v );
+        }
+        if ( property.type === 'string' && property.maxLength ) {
+            validations.push( { type: "LengthOf", args: [ propName, { max: property.maxLength } ] } );
+        }
+        if ( property.type === 'string' && property.minLength ) {
+            validations.push( { type: "LengthOf", args: [ propName, { min: property.minLength }] } );
+        }
+        if ( property.unique === true ) {
+            validations.push( { type: "UniquenessOf", args: [ propName ] } );
+        }
         modelProperties[ propName ] = modelProperty
     }
 
-    console.log( 'table ', schema.dbCollection );
-    this.model = db.define( this.schema.name, modelProperties, { table: schema.dbCollection } );
+    this.model = model = db.define( this.schema.name, modelProperties, { table: schema.dbCollection } );
+    validations.forEach( function( validation ) {
+        var method = 'validates' + validation.type;
+        model[ method ].apply( model, validation.args );
+    } );
 }
 
 Resource.prototype.list = function( req, res, next ) {
@@ -71,7 +95,7 @@ Resource.prototype.validate = function( req, res, next ) {
     }
     resource.isValid( function( valid ) {
         if ( !valid ) {
-            req.send( 400, { errors: resource.errors } );
+            return res.send( 400, { errors: resource.errors } );
         }
         self.trigger( 'validate', req, res, req.body, next );
     } );
