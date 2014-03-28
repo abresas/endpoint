@@ -1,51 +1,11 @@
 var YAML = require( 'yamljs' );
-var schemaManager = require( './schema' );
+var loadSchemata = require( './schema' ).loadFromDirectory;
+var loadScripts = require( './script' ).loadFromDirectory;
 var extend = require( 'util' )._extend;
 var Resource = require( './resource' ).Resource;
 var DBSchema = require( 'jugglingdb' ).Schema;
 var express = require( 'express' );
 var fs = require( 'fs' );
-
-function loadScripts( path, callback ) {
-    callback = callback || function() {};
-    var scripts = [];
-    fs.readdir( path, function( err, files ) {
-        if ( err ) {
-            console.error( 'endpoint: Error reading directory: ' + path + '. Error: ' + err );
-            callback( { error: 'scriptsdir', message: 'Error reading scripts dir', details: err } );
-            return;
-        }
-        var pending = files.length;
-        if ( !pending ) { callback( false, [] ); };
-        files.forEach( function( file ) {
-            var fileName = path + '/' + file;
-            fs.stat( fileName, function( err, stat ) {
-                if ( err || !stat ) {
-                    console.error( 'endpoint: Error reading file: ' + fileName + '. Error: ' + err );
-                    --pending;
-                    if ( !pending ) callback( false );
-                    return;
-                }
-                if ( stat.isDirectory() ) {
-                    loadScripts( fileName, function( s ) {
-                        --pending;
-                        Array.prototype.push.apply( scripts, s );
-                        if ( !pending ) callback( false, scripts );
-                    } ); 
-                    return;
-                }
-                // console.log( 'script ext ' + fileName.slice( -3 ) );
-                if ( fileName.slice( -3 ) == '.js' ) {
-                    console.log( 'endpoint: loading script ' + fileName );
-                    require( fileName.slice( 0, -3 ) );
-                    scripts.push( fileName );
-                    --pending;
-                    if ( !pending ) callback( false, scripts );
-                }
-            } );
-        } );
-    } );
-}
 
 function setupAPI( app, resource, db ) {
     var schema = resource.schema;
@@ -88,7 +48,9 @@ express.application.run = function() {
     var baseConfig = {
         server: {
             port: 8080
-        }
+        },
+        scriptsDir: "scripts",
+        resourcesDir: "resources"
     };
     var exists = fs.existsSync( process.cwd() + '/config.yml' );
     if ( !exists ) {
@@ -102,7 +64,7 @@ express.application.run = function() {
     var collections = {};
     var databases = {};
     console.log( 'endpoint: loading schemata' );
-    schemaManager.loadFromDirectory( process.cwd() + '/resources', function( err, schemata ) {
+    loadSchemata( config.resourcesDir, function( err, schemata ) {
         if ( !schemata ) {
             console.error( 'endpoint: no resources found.' );
         }
@@ -128,7 +90,7 @@ express.application.run = function() {
             } );
         }
         console.log( 'endpoint: loading scripts' );
-        loadScripts( process.cwd() + '/scripts', function( err, scripts ) {
+        loadScripts( config.scriptsDir, function( err, scripts ) {
             if ( err ) {
                 console.error( 'endpoint: failed loading scripts.' );
             }
