@@ -15,7 +15,9 @@ function Resource( schema, db ) {
             'string': String,
             'text': Schema.Text,
             'date': Date,
-            'number': Number,
+            'int': Number,
+            'decimal': Number,
+            'float': Number,
             'boolean': Boolean,
             'email': String
         };
