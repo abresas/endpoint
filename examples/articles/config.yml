@@ -1,3 +1,6 @@
-database:
-    name: 'test'
-    host: '127.0.0.1'
+databases:
+    default:
+        database: test
+        host: 127.0.0.1
+        adapter: mysql
+        username: root

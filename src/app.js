@@ -1,8 +1,8 @@
 var YAML = require( 'yamljs' );
 var schemaManager = require( './schema' );
-var dbManager = require( './db' );
 var extend = require( 'util' )._extend;
 var Resource = require( './resource' ).Resource;
+var DBSchema = require( 'jugglingdb' ).Schema;
 var express = require( 'express' );
 var fs = require( 'fs' );
 
@@ -88,10 +88,6 @@ express.application.run = function() {
     var baseConfig = {
         server: {
             port: 8080
-        },
-        database: {
-            name: 'test',
-            host: '127.0.0.1'
         }
     };
     var exists = fs.existsSync( process.cwd() + '/config.yml' );
@@ -104,7 +100,7 @@ express.application.run = function() {
     }
     console.log( 'endpoint: using config', config );
     var collections = {};
-    var db = dbManager.Database( 'mongodb://' + config.database.host + '/' + config.database.name );
+    var databases = {};
     console.log( 'endpoint: loading schemata' );
     schemaManager.loadFromDirectory( process.cwd() + '/resources', function( err, schemata ) {
         if ( !schemata ) {
@@ -112,6 +108,20 @@ express.application.run = function() {
         }
         else {
             schemata.forEach( function( schema ) {
+                if ( !( schema.db in config.databases ) ) { // check if this db is configured
+                    console.err( 'No such db "' + schema.db + '" specified in configuration file.' );
+                    process.exit();
+
+                }
+                else if ( !( schema.db in databases ) ) { // first model with this db, connect
+                    var dbConfig = config.databases[ schema.db ]
+                    databases[ schema.db ] = new DBSchema( dbConfig.adapter, dbConfig );
+                }
+                db = databases[ schema.db ];
+                if ( !db.adapter ) {
+                    console.error( 'Could not initialize db "' + schema.db + '". You may need to install jugglingdb ' + dbConfig.adapter + ' adapter.' );
+                    process.exit();
+                }
                 var resource = new Resource( schema, db );
                 resource[ schema.name ] = resource;
                 setupAPI( app, resource, db );
