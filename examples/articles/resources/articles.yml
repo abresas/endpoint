@@ -1,10 +1,11 @@
-Article:
+Articles:
     uri: '/articles/:id'
     dbCollection: 'articles'
     properties:
         id:
-            type: id
-            key: primary
+            type: 'integer'
+            autoIncrement: true
+            primaryKey: true
         title:
             type: string
             maxLength: 255

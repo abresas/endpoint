@@ -26,6 +26,9 @@ function processSchemaFile( fileData, callback ) {
 }
 
 function loadFromDirectory( path, callback ) {
+    if ( !callback ) {
+        throw 'Second argument to loadFromDirectory must be a function';
+    }
     var schemata = [];
     fs.readdir( path, function( err, files ) {
         if ( err ) {
