@@ -1,107 +1,111 @@
-var YAML = require( 'yamljs' );
-var loadSchemata = require( './schema' ).loadFromDirectory;
-var loadScripts = require( './script' ).loadFromDirectory;
-var extend = require( 'util' )._extend;
-var Resource = require( './resource' ).Resource;
-var DBSchema = require( 'jugglingdb' ).Schema;
 var express = require( 'express' );
-var fs = require( 'fs' );
+var connect = require( 'connect' );
+var createDb = require( './db' ).createDb;
+var Resource = require( './resource' );
 
-function setupAPI( app, resource, db ) {
-    var schema = resource.schema;
-    console.log( 'endpoint: registering collection uri ' + schema.baseUri );
-    app.all( schema.baseUri, resource.initCollectionRequest.bind( resource ) );
-    app.get( schema.baseUri, resource.list.bind( resource ) );
-    app.get( schema.baseUri, resource.renderList.bind( resource ) );
-    app.post( schema.baseUri, resource.validate.bind( resource ) );
-    app.post( schema.baseUri, resource.create.bind( resource ) );
-    app.post( schema.baseUri, resource.render.bind( resource ) );
+function createApp() {
+    var app = express();
+    app.set( 'x-powered-by', 'endpoint' );
+    app.set( 'json spaces', 4 );
+    // app.set( 'env', 'development' );
+    app.use( connect.json() );
+    app.db = null;
 
-    console.log( 'endpoint: registering resource uri', schema.uri );
-    app.all( schema.uri, resource.initResourceRequest.bind( resource ) );
-    app.get( schema.uri, resource.view.bind( resource ) );
-    app.get( schema.uri, resource.render.bind( resource ) );
-    app.put( schema.uri, resource.validate.bind( resource ) );
-    app.put( schema.uri, resource.replace.bind( resource ) );
-    app.put( schema.uri, resource.render.bind( resource ) );
-    app.patch( schema.uri, resource.validate.bind( resource ) );
-    app.patch( schema.uri, resource.update.bind( resource ) );
-    app.patch( schema.uri, resource.render.bind( resource ) );
-    app.delete( schema.uri, resource.delete.bind( resource ) );
-    app.delete( schema.uri, resource.render.bind( resource ) );
+    var router = express.Router( { strict: true } );
+    app.use( router );
 
-    app.set( 'resource/' + schema.name, resource );
-}
+    var resources = {};
 
-express.application.resource = function( name ) {
-    return this.get( 'resource/' + name );
-};
-
-express.application.run = function() {
-    var app = this;
-    app.use( express.bodyParser() );
-    app.use( function( req, res, next ) {
-        res.header( 'X-Powered-By', 'Endpoint' );
-        next();
-    } );
-
-    var baseConfig = {
-        server: {
-            port: 8080
-        },
-        scriptsDir: "scripts",
-        resourcesDir: "resources"
+    app.addSchema = function( schema ) {
+        app.db.addCollection( {
+            db: schema.db,
+            name: schema.name,
+            dbCollection: schema.dbCollection,
+            properties: schema.properties 
+        } );
+        var resource = new Resource( schema );
+        resource.setupAPI( router );
+        resources[ schema.name ] = resource;
     };
-    var exists = fs.existsSync( process.cwd() + '/config.yml' );
-    if ( !exists ) {
-        console.log( 'endpoint: No config.yml file found. Using default configuration.' );
-        var config = baseConfig; 
-    }
-    else {
-        var config = extend( baseConfig, YAML.load( 'config.yml' ) );
-    }
-    console.log( 'endpoint: using config', config );
-    var collections = {};
-    var databases = {};
-    console.log( 'endpoint: loading schemata' );
-    loadSchemata( config.resourcesDir, function( err, schemata ) {
-        if ( !schemata ) {
-            console.error( 'endpoint: no resources found.' );
+
+    app.model = function( name ) {
+        return app.db.collections[ name ];
+    };
+
+    app.init = function( opts ) {
+        app.listen( opts.server.port );
+        console.log( 'endpoint: listening on port', opts.server.port );
+
+        app.db = createDb( opts.databases );
+    };
+
+    var YAML = require( 'yamljs' );
+    var loadSchemata = require( '../src/schema' ).loadFromDirectory;
+    var loadScripts = require( '../src/script' ).loadFromDirectory;
+    var fs = require( 'fs' );
+    var extend = require( 'util' )._extend;
+    app.exec = function() {
+        var baseConfig = {
+            server: {
+                port: 8080
+            },
+            scriptsDir: "scripts",
+            resourcesDir: "resources"
+        };
+        var exists = fs.existsSync( process.cwd() + '/config.yml' );
+        if ( !exists ) {
+            console.log( 'endpoint: No config.yml file found. Using default configuration.' );
+            var config = baseConfig; 
         }
         else {
-            schemata.forEach( function( schema ) {
-                if ( !( schema.db in config.databases ) ) { // check if this db is configured
-                    console.err( 'No such db "' + schema.db + '" specified in configuration file.' );
-                    process.exit();
-
-                }
-                else if ( !( schema.db in databases ) ) { // first model with this db, connect
-                    var dbConfig = config.databases[ schema.db ]
-                    databases[ schema.db ] = new DBSchema( dbConfig.adapter, dbConfig );
-                }
-                db = databases[ schema.db ];
-                if ( !db.adapter ) {
-                    console.error( 'Could not initialize db "' + schema.db + '". You may need to install jugglingdb ' + dbConfig.adapter + ' adapter.' );
-                    process.exit();
-                }
-                var resource = new Resource( schema, db );
-                resource[ schema.name ] = resource;
-                setupAPI( app, resource, db );
-            } );
+            var config = extend( baseConfig, YAML.load( 'config.yml' ) );
         }
-        console.log( 'endpoint: loading scripts' );
-        loadScripts( config.scriptsDir, function( err, scripts ) {
-            if ( err ) {
-                console.error( 'endpoint: failed loading scripts.' );
-            }
-            else if ( !scripts ) {
-                console.error( 'endpoint: no scripts found.' );
-            }
-        } );
-    } );
-    app.listen( config.server.port );
-    console.log( 'endpoint: listening on port', config.server.port );
-}
-var app = express();
+        console.log( 'endpoint: using config', config );
+        app.init( config );
 
-module.exports = exports = app;
+        loadSchemata( process.cwd() + '/resources/', function( err, schemata ) {
+            if ( err ) {
+                console.error( err );
+                throw "endpoint: Error reading resources directory.";
+            }
+
+            schemata.forEach( function( schema ) {
+                app.addSchema( schema );
+            } );
+
+            loadScripts( process.cwd() + '/' + config.scriptsDir, { app: app }, function( err, scripts ) {
+                if ( err ) {
+                    console.error( 'endpoint: failed loading scripts.' );
+                }
+                else if ( !scripts ) {
+                    console.error( 'endpoint: no scripts found.' );
+                }
+                console.log( 'endpoint: scripts loaded' );
+            } );
+
+            // This is kind of sad, we have to initialize Waterline
+            // after all schemata have been added, because only on initialization
+            // we get access to the model objects (which are different than the collections
+            // we created earlier.)
+            // After we get the list of models, we assign each resource the model it should use
+            app.db.init( function( err, models ) {
+                if ( err ) {
+                    console.error( err );
+                    throw "endpoint: Failed to initialize waterline ORM.";
+                }
+                for ( i in resources ) {
+                    if ( !( i.toLowerCase() in models.collections ) ) {
+                        throw "endpoint: Failed to initialize model for resource " + i + ".";
+                    }
+                    resources[ i ].setModel( models.collections[ i.toLowerCase() ] );
+                }
+            } );
+        } );
+
+        return app;
+    }
+
+    return app;
+}
+
+module.exports = exports = createApp();
