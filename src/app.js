@@ -44,7 +44,8 @@ function createApp() {
     var loadScripts = require( '../src/script' ).loadFromDirectory;
     var fs = require( 'fs' );
     var extend = require( 'util' )._extend;
-    app.exec = function() {
+    app.exec = function( cb ) {
+        cb = cb || function() {};
         var baseConfig = {
             server: {
                 port: 8080
@@ -73,7 +74,7 @@ function createApp() {
                 app.addSchema( schema );
             } );
 
-            loadScripts( process.cwd() + '/' + config.scriptsDir, { app: app }, function( err, scripts ) {
+            loadScripts( process.cwd() + '/' + config.scriptsDir, function( err, scripts ) {
                 if ( err ) {
                     console.error( 'endpoint: failed loading scripts.' );
                 }
@@ -99,6 +100,7 @@ function createApp() {
                     }
                     resources[ i ].setModel( models.collections[ i.toLowerCase() ] );
                 }
+                cb();
             } );
         } );
 

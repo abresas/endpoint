@@ -1,0 +1,15 @@
+Articles:
+    uri: '/articles/:id'
+    dbCollection: 'articles'
+    properties:
+        id:
+            type: 'integer'
+            autoIncrement: true
+            primaryKey: true
+        title:
+            type: string
+            maxLength: 255
+            minLength: 5
+            unique: true
+        body:
+            type: text

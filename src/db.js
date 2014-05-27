@@ -22,7 +22,7 @@ function createDb( connections ) {
         adapters: adapters,
         connections: connections,
         defaults: {
-            migrate: 'safe'
+            migrate: 'alter'
         }
     };
 

@@ -1,0 +1,6 @@
+databases:
+    default:
+        database: test_articles
+        host: 127.0.0.1
+        adapter: mysql
+        username: root
